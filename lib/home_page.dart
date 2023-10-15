@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
 class HomePage extends StatefulWidget {
@@ -13,6 +15,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late FirebaseStorage firebaseStorage;
+
   String imageUrl = "";
   @override
   void initState() {
@@ -37,49 +40,113 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  File? pickedImageUrl;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            height: 200,
-            width: MediaQuery.of(context).size.width,
-            child: _image == null
-                ? Container()
-                : Image.file(
-                    _image!,
-                    fit: BoxFit.fill,
-                  ),
-          ),
-          SizedBox(
-            height: 20,
-          ),
-          SizedBox(
-            width: MediaQuery.of(context).size.width * 0.5,
-            child: ElevatedButton(
+      body: SizedBox(
+        width: double.infinity,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            InkWell(
+              onTap: () async {
+                //imagePicker
+                var imageFromGallery =
+                    await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (imageFromGallery == null) return;
+                var croppedFile = await ImageCropper().cropImage(
+                  sourcePath: imageFromGallery.path,
+                  uiSettings: [
+                    AndroidUiSettings(
+                        toolbarTitle: 'Cropper',
+                        toolbarColor: Colors.deepOrange,
+                        toolbarWidgetColor: Colors.white,
+                        initAspectRatio: CropAspectRatioPreset.original,
+                        lockAspectRatio: false),
+                    IOSUiSettings(
+                      title: 'Cropper',
+                    ),
+                    WebUiSettings(
+                      context: context,
+                      presentStyle: CropperPresentStyle.dialog,
+                      boundary: const CroppieBoundary(
+                        width: 520,
+                        height: 520,
+                      ),
+                      viewPort: const CroppieViewPort(
+                          width: 480, height: 480, type: 'circle'),
+                      enableExif: true,
+                      enableZoom: true,
+                      showZoomer: true,
+                    ),
+                  ],
+                );
+                if (croppedFile != null) {
+                  pickedImageUrl = File(croppedFile.path);
+                }
+                // pickedImageUrl = File(imageFromGallery.path);
+                setState(() {});
+              },
+              child: Container(
+                  height: 150,
+                  width: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    image: pickedImageUrl != null
+                        ? DecorationImage(
+                            fit: BoxFit.cover,
+                            image: FileImage(
+                              pickedImageUrl!,
+                            ),
+                          )
+                        : null,
+                  )),
+            ),
+            SizedBox(
+              height: 20,
+            ),
+            Text(
+              'Sadid Pic',
+              style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(
+              height: 10,
+            ),
+            ElevatedButton(
                 onPressed: () {
-                  _pickImageFromGallery();
+                  var currTime = DateTime.now().millisecondsSinceEpoch;
+                  if (pickedImageUrl != null) {
+                    var uplaodRef = firebaseStorage
+                        .ref()
+                        .child("images/profilePic/img_$currTime.jpg");
+                    try {
+                      uplaodRef.putFile(pickedImageUrl!).then((p0) async {
+                        var downloadUrl = await p0.ref.getDownloadURL();
+                        FirebaseFirestore.instance
+                            .collection('users')
+                            .doc("6dgZIYlrlITE9THY7IaNCbSZY092")
+                            .update({
+                          "profilePic": downloadUrl,
+                        }).then((value) =>
+                                print('profile picture uploaed to fire store'));
+                      });
+                    } catch (e) {
+                      print('Error : ${e.toString()}');
+                    }
+                  }
                 },
-                child: Text('Picked Image')),
-          ),
-          SizedBox(
-            height: 20,
-          ),
-          Container(
-            height: 200,
-            width: MediaQuery.of(context).size.width,
-            child: imageUrl.isNotEmpty
-                ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.fill,
-                  )
-                : Container(),
-          ),
-          Container()
-        ],
+                child: Text('Update Profile'))
+          ],
+        ),
       ),
     );
   }
 }
+
+
+// "email":"s1@s.com"
+// "id":"6dgZIYlrlITE9THY7IaNCbSZY092"
+// "password":"12345678"
