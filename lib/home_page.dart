@@ -24,6 +24,14 @@ class _HomePageState extends State<HomePage> {
     Reference storageRef = firebaseStorage.ref();
     Reference imageRef = storageRef.child('images/tower-2.jpeg');
     getImageUrl(imageRef);
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc("6dgZIYlrlITE9THY7IaNCbSZY092")
+        .get()
+        .then((value) {
+      profilePicUrl = value.get('profilePic');
+      setState(() {});
+    });
   }
 
   void getImageUrl(Reference ref) async {
@@ -41,6 +49,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   File? pickedImageUrl;
+  String profilePicUrl = "";
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +111,11 @@ class _HomePageState extends State<HomePage> {
                               pickedImageUrl!,
                             ),
                           )
-                        : null,
+                        : profilePicUrl != ""
+                            ? DecorationImage(
+                                image: NetworkImage(profilePicUrl),
+                              )
+                            : null,
                   )),
             ),
             SizedBox(
@@ -128,6 +141,15 @@ class _HomePageState extends State<HomePage> {
                         FirebaseFirestore.instance
                             .collection('users')
                             .doc("6dgZIYlrlITE9THY7IaNCbSZY092")
+                            .collection("profilePic")
+                            .add({
+                          "profilePic": downloadUrl,
+                        }).then((value) =>
+                                print('profile picture uploaed to fire store'));
+
+                        FirebaseFirestore.instance
+                            .collection('users')
+                            .doc("6dgZIYlrlITE9THY7IaNCbSZY092")
                             .update({
                           "profilePic": downloadUrl,
                         }).then((value) =>
@@ -138,7 +160,31 @@ class _HomePageState extends State<HomePage> {
                     }
                   }
                 },
-                child: Text('Update Profile'))
+                child: Text('Update Profile')),
+            Expanded(
+                child: StreamBuilder(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc("6dgZIYlrlITE9THY7IaNCbSZY092")
+                  .collection("profilePic")
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return GridView.builder(
+                    itemCount: snapshot.data!.docs.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4),
+                    itemBuilder: (context, index) {
+                      return Container(
+                        child: Image.network(
+                            snapshot.data!.docs[index].data()['profilePic']),
+                      );
+                    },
+                  );
+                }
+                return Container();
+              },
+            ))
           ],
         ),
       ),
